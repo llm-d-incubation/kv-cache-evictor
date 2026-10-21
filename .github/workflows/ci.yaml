@@ -1,0 +1,80 @@
+---
+name: CI
+
+"on":
+  pull_request:
+    paths:
+      - 'filesystem/**'
+      - 'Makefile'
+      - '.github/workflows/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'filesystem/**'
+      - 'Makefile'
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+env:
+  MODULE_DIR: filesystem
+  IMAGE_REGISTRY: ghcr.io/llm-d-incubation
+  IMAGE_NAME: kv-cache-evictor
+  IMAGE_TAG: main
+  IMAGE_SOURCE: ${{ github.server_url }}/${{ github.repository }}
+
+concurrency:
+  group: >-
+    ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.MODULE_DIR }}/go.mod
+          cache-dependency-path: ${{ env.MODULE_DIR }}/go.sum
+      - run: make verify
+
+  image:
+    name: Build image
+    runs-on: ubuntu-latest
+    needs: verify
+    timeout-minutes: 5
+    env:
+      PUSH_IMAGE: >-
+        ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: env.PUSH_IMAGE == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.MODULE_DIR }}
+          file: ${{ env.MODULE_DIR }}/Dockerfile
+          push: ${{ env.PUSH_IMAGE }}
+          tags: >-
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          labels: |
+            org.opencontainers.image.source=${{ env.IMAGE_SOURCE }}
+            org.opencontainers.image.revision=${{ github.sha }}

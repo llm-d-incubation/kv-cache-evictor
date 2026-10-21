@@ -1,0 +1,50 @@
+---
+name: Release Image
+
+"on":
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  MODULE_DIR: filesystem
+
+jobs:
+  release:
+    name: Build and push release image
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ env.MODULE_DIR }}/go.mod
+          cache-dependency-path: ${{ env.MODULE_DIR }}/go.sum
+
+      - name: Run checks
+        run: make verify
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.MODULE_DIR }}
+          file: ${{ env.MODULE_DIR }}/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
