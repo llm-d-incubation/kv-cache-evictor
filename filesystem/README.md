@@ -117,6 +117,7 @@ make build      # Build filesystem/bin/pvc-evictor
 make image      # Build the container image
 make chart-lint # Lint the Helm chart
 make chart-render # Render the Helm chart
+make kustomize-render # Render standalone Kustomize manifests
 ```
 
 `make lint` downloads the pinned `golangci-lint` module when it is not already in the Go module cache.
