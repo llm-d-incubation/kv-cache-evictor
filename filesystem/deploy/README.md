@@ -27,31 +27,22 @@ leader election.
 - a ConfigMap with the evictor environment variables
 - the evictor image
 
-#### You do
-
 1. Open `filesystem/deploy/kustomize/standalone/kustomization.yaml`.
 
-   Find these lines and replace the values on the right:
+   Set these values in the file:
 
-   ```text
-   namespace: llm-d-cache  ->  namespace: team-a
-   value: kv-cache-pvc     ->  value: vllm-cache
-   newTag: main            ->  newTag: v1.0.0
-   ```
+   - `namespace: <your-namespace>` — the namespace containing your PVC;
+   - `value: <your-pvc-name>` — the name of your existing PVC;
+   - `newTag: <your-image-tag>` — the tag of the evictor image to run.
 
    Use the namespace where the PVC exists. Use the exact PVC name from
    `metadata.name`. The `value` line is the JSON patch that changes the PVC
    name in the generated evictor Deployment; you do not need to edit
    `deployment.yaml` for this change.
 
-   The image is then:
-
-   ```text
-   ghcr.io/llm-d-incubation/kv-cache-evictor:v1.0.0
-   ```
-
-   `main` follows the latest main image and is mutable. Use a release or
-   commit tag for a fixed image.
+   `newTag` is the image tag after the colon. `main` uses the latest main
+   image and is mutable. Use a release or commit tag only when that tag exists
+   in the image registry.
 
 2. Edit `filesystem/deploy/kustomize/standalone/configmap.env`:
 
@@ -79,11 +70,44 @@ leader election.
 
 The standalone Kustomize files do not create or delete the PVC.
 
+To publish storage events, set `STORAGE_EVENTS_ENDPOINT` in
+`filesystem/deploy/kustomize/standalone/configmap.env`. Kustomize does not
+create a Service for this endpoint.
+
 ### Sidecar
 
-Deploy the PVC evictor as a sidecar in your vLLM Deployment. The sidecar must
-mount the same cache PVC as vLLM and use the environment variables documented
-in [filesystem/README.md](../README.md).
+Add the PVC evictor container and its environment values to your vLLM
+Deployment. It must mount the same cache PVC as vLLM. Use the environment
+variables documented in [Filesystem settings](../README.md#settings).
+
+Add this container under `spec.template.spec.containers`:
+
+```yaml
+- name: filesystem-evictor
+  image: ghcr.io/llm-d-incubation/kv-cache-evictor:main
+  imagePullPolicy: Always
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+    runAsNonRoot: true
+  env:
+    - name: PVC_MOUNT_PATH
+      value: /kv-cache
+    - name: CACHE_DIRECTORY
+      value: kv/model-cache/models
+    - name: CLEANUP_THRESHOLD
+      value: "85.0"
+    - name: TARGET_THRESHOLD
+      value: "70.0"
+  volumeMounts:
+    - name: cache-storage
+      mountPath: /kv-cache
+```
+
+Change the image tag, cache directory, thresholds, and volume name to match
+your vLLM Deployment.
 
 This repository does not provide a Kustomize sidecar overlay.
 
@@ -102,14 +126,13 @@ This repository does not provide a Kustomize sidecar overlay.
 - a ConfigMap with the evictor environment variables;
 - the evictor image.
 
-#### You do
-
 Install the chart and set the PVC name:
 
 ```sh
 helm install kv-cache-evictor filesystem/deploy/helm \
-  --namespace llm-d-cache \
   --create-namespace \
+  --namespace llm-d-cache \
+  --set mode=standalone \
   --set standalone.existingClaim=kv-cache-pvc
 ```
 
@@ -123,6 +146,14 @@ helm uninstall kv-cache-evictor --namespace llm-d-cache
 ```
 
 The Helm chart does not create or delete the PVC.
+
+To publish storage events, add these flags to the install command:
+
+```sh
+--set-string events.endpoint='tcp://*:5570' \
+--set events.service.enabled=true \
+--set events.service.port=5570
+```
 
 ### Sidecar
 
@@ -140,20 +171,21 @@ The Helm chart does not create or delete the PVC.
 
 The chart does not modify a vLLM Deployment owned by another chart.
 
-#### You do
-
 Install the chart in sidecar mode:
 
 ```sh
 helm install kv-cache-evictor filesystem/deploy/helm \
-  --namespace llm-d-cache \
   --create-namespace \
+  --namespace llm-d-cache \
   --set mode=sidecar \
   --set sidecar.volumeName=cache-storage
 ```
 
-Then add the container printed in the install notes to the vLLM Pod. It must
-be under `containers`, not `initContainers`:
+Then add the container printed in the install notes under `containers` in the
+vLLM Pod:
+
+The following example is for Helm sidecar mode. Helm creates the
+`kv-cache-evictor-settings` ConfigMap used by `envFrom`.
 
 ```yaml
 - name: filesystem-evictor
@@ -192,6 +224,10 @@ annotations:
   checksum/kv-cache-evictor: {{ include "kv-cache-evictor.configChecksum" $evictor }}
 ```
 
+To publish storage events in sidecar mode, set `events.endpoint` when you
+install the chart and expose port `5570` through the vLLM Pod and Service.
+The Helm chart does not create the Service in sidecar mode.
+
 ## Scheduling and permissions
 
 In sidecar mode, the evictor always runs on the same node as vLLM because it
@@ -209,18 +245,3 @@ In standalone mode, the PVC access mode controls scheduling:
 The evictor container must have Unix permission to delete files in the cache.
 If the volume requires a specific user or group, set those fields on the Pod
 that owns the cache mount.
-
-## Storage events
-
-`STORAGE_EVENTS_ENDPOINT` works in both modes.
-
-In standalone Helm mode, you can create a Service for the event endpoint. Set
-a matching TCP endpoint and Service port:
-
-```sh
---set events.endpoint='tcp://*:5570' \
---set events.service.enabled=true \
---set events.service.port=5570
-```
-
-In sidecar mode, expose the event port through the vLLM Pod and its Service.
