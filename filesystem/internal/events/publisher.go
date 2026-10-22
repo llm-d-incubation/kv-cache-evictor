@@ -29,11 +29,11 @@ func NewPublisher(ctx context.Context, endpoint string) (*Publisher, error) {
 	socket := zmq4.NewPub(ctx)
 	if err := socket.SetOption(zmq4.OptionHWM, sendHighWaterMark); err != nil {
 		_ = socket.Close()
-		return nil, fmt.Errorf("set ZeroMQ send high-water mark: %w", err)
+		return nil, fmt.Errorf("set ZMQ send high-water mark: %w", err)
 	}
 	if err := socket.Listen(endpoint); err != nil {
 		_ = socket.Close()
-		return nil, fmt.Errorf("listen on ZeroMQ endpoint %q: %w", endpoint, err)
+		return nil, fmt.Errorf("listen on ZMQ endpoint %q: %w", endpoint, err)
 	}
 	return &Publisher{socket: socket}, nil
 }
@@ -71,7 +71,7 @@ func (p *Publisher) PublishBlocksRemoved(ctx context.Context, blockHashes []uint
 // closeDrainDelay ago, it first waits out the rest of that time.
 //
 // Send only queues the event. The socket sends it later from a background
-// goroutine, and closing the socket drops anything still queued. The ZeroMQ
+// goroutine, and closing the socket drops anything still queued. The ZMQ
 // library has no flush call, so this wait is a best-effort way to let the
 // final BlockRemoved events leave before shutdown.
 func (p *Publisher) Close() error {

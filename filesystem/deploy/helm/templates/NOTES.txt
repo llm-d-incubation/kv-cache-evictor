@@ -1,0 +1,11 @@
+{{- if eq .Values.mode "sidecar" }}
+This chart is installed in sidecar mode.
+
+It creates only {{ include "kv-cache-evictor.fullname" . }}-settings. Add the
+container below to the vLLM Pod that mounts volume
+{{ .Values.sidecar.volumeName }}:
+
+{{ include "kv-cache-evictor.sidecarContainer" . }}
+
+Put the container under containers.
+{{- end }}

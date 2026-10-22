@@ -1,0 +1,47 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kv-cache-evictor
+  labels:
+    app.kubernetes.io/name: kv-cache-evictor
+    app.kubernetes.io/component: cache-evictor
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kv-cache-evictor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kv-cache-evictor
+        app.kubernetes.io/component: cache-evictor
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: filesystem-evictor
+          image: ghcr.io/llm-d-incubation/kv-cache-evictor
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+          envFrom:
+            - configMapRef:
+                name: kv-cache-evictor-config
+          volumeMounts:
+            - name: cache-storage
+              mountPath: /kv-cache
+      volumes:
+        - name: cache-storage
+          persistentVolumeClaim:
+            claimName: kv-cache-pvc

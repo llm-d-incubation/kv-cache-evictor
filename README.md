@@ -25,4 +25,5 @@ Build the container image with:
 make image
 ```
 
-See [filesystem/README.md](filesystem/README.md) for backend-specific usage, settings, cache layouts, and storage events.
+See [filesystem/README.md](filesystem/README.md) for backend-specific usage,
+settings, cache layouts, storage events, and deployment documentation.
