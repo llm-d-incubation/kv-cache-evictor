@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "kv-cache-evictor.fullname" . }}-events
+  name: {{ include "kv-cache-evictor.eventsServiceName" . }}
   labels:
     {{- include "kv-cache-evictor.labels" . | nindent 4 }}
 spec:
