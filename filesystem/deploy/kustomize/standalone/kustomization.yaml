@@ -1,0 +1,27 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Replace with the namespace containing the cache workload and PVC.
+namespace: llm-d-cache
+
+resources:
+  - deployment.yaml
+
+configMapGenerator:
+  - name: kv-cache-evictor-config
+    envs:
+      - configmap.env
+
+patches:
+  - target:
+      kind: Deployment
+      name: kv-cache-evictor
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes/0/persistentVolumeClaim/claimName
+        value: kv-cache-pvc
+
+images:
+  - name: ghcr.io/llm-d-incubation/kv-cache-evictor
+    newTag: main

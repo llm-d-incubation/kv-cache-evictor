@@ -1,0 +1,72 @@
+{{- if eq .Values.mode "standalone" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kv-cache-evictor.fullname" . }}
+  labels:
+    {{- include "kv-cache-evictor.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.standalone.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "kv-cache-evictor.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kv-cache-evictor.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: cache-evictor
+      annotations:
+        checksum/config: {{ include "kv-cache-evictor.configChecksum" . }}
+        {{- with .Values.standalone.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.standalone.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.standalone.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: filesystem-evictor
+          image: {{ include "kv-cache-evictor.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "kv-cache-evictor.fullname" . }}-settings
+          {{- if .Values.events.service.enabled }}
+          ports:
+            - name: events
+              containerPort: {{ .Values.events.service.port }}
+              protocol: TCP
+          {{- end }}
+          volumeMounts:
+            - name: cache-storage
+              mountPath: {{ .Values.storage.mountPath }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      volumes:
+        - name: cache-storage
+          persistentVolumeClaim:
+            claimName: {{ .Values.standalone.existingClaim }}
+      {{- with .Values.standalone.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.standalone.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.standalone.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

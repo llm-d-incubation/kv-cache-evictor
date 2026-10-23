@@ -1,0 +1,147 @@
+# Runtime mode: standalone, sidecar
+# standalone creates one evictor Deployment.
+# sidecar creates only the ConfigMap and a reusable container template.
+# Helm does not inject a sidecar into an existing vLLM Pod.
+mode: standalone
+
+# Container image used by the evictor Deployment.
+image:
+  repository: ghcr.io/llm-d-incubation/kv-cache-evictor
+  # Use a release or commit tag for reproducible deployments. The default
+  # "main" tag is mutable.
+  tag: main
+  pullPolicy: Always
+
+# Replaces the chart name in Kubernetes resource names.
+nameOverride: ""
+
+# Replaces the complete generated resource names.
+fullnameOverride: ""
+
+# Cache location. The chart never creates the PVC.
+storage:
+  # Path where the PVC is mounted inside the container. Rendered as
+  # PVC_MOUNT_PATH and used for the volumeMounts.mountPath field.
+  mountPath: /kv-cache
+
+  # Relative cache directory below mountPath. Rendered as CACHE_DIRECTORY.
+  cacheDirectory: kv/model-cache/models
+
+# Evictor settings. Helm renders these into the ConfigMap environment
+# variables used by the binary.
+settings:
+  # Filesystem usage percentage that starts deletion. CLEANUP_THRESHOLD.
+  cleanupThreshold: 85.0
+
+  # Filesystem usage percentage that stops deletion. TARGET_THRESHOLD.
+  # This must be lower than cleanupThreshold.
+  targetThreshold: 70.0
+
+  # Log deletion decisions without deleting files. DRY_RUN.
+  dryRun: false
+
+  # DEBUG, INFO, WARNING, or ERROR. LOG_LEVEL.
+  logLevel: INFO
+
+  # Crawler workers. NUM_CRAWLER_PROCESSES. Must be a power of two from 1 to 16.
+  numCrawlerProcesses: 8
+
+  # Filesystem usage check interval. LOGGER_INTERVAL_SECONDS.
+  loggerIntervalSeconds: 0.5
+
+  # Maximum number of file paths kept in the queue. FILE_QUEUE_MAXSIZE.
+  fileQueueMaxSize: 10000
+
+  # Queue depth maintained while deletion is off. FILE_QUEUE_MIN_SIZE.
+  fileQueueMinSize: 1000
+
+  # Number of files handled per deletion batch. DELETION_BATCH_SIZE.
+  deletionBatchSize: 100
+
+  # Maximum deletion rate. DELETION_MAX_FILES_PER_SECOND. Zero means unlimited.
+  deletionMaxFilesPerSecond: 0
+
+  # Files accessed within this many minutes are protected. FILE_ACCESS_TIME_THRESHOLD_MINUTES.
+  fileAccessTimeThresholdMinutes: 60
+
+  # Length of the first hex-bucket directory name. HEX_BUCKET_LEN. Must match
+  # the cache layout and be between 2 and 4.
+  hexBucketLen: 3
+
+  # Remove eligible empty cache directories. ENABLE_DIR_CLEANUP.
+  enableDirCleanup: true
+
+  # Quiet period before an empty directory is removed. DIR_CLEANUP_TTL_SECONDS.
+  dirCleanupTTLSeconds: 120
+
+  # Optional additional append-only log file inside the container. LOG_FILE_PATH.
+  # Empty disables the extra log file.
+  logFilePath: ""
+
+# ZMQ BlockRemoved event publishing.
+events:
+  # STORAGE_EVENTS_ENDPOINT. Empty disables event publishing. For network
+  # publishing inside Kubernetes, use a ZMQ TCP endpoint such as
+  # tcp://*:5570.
+  endpoint: ""
+
+  service:
+    # Creates a Service and containerPort for the event endpoint in standalone
+    # mode. Set endpoint to a matching tcp://...:<port> value. In sidecar
+    # mode, expose the port through the vLLM Pod instead.
+    enabled: false
+    type: ClusterIP
+    port: 5570
+
+# securityContext for the evictor container.
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  runAsNonRoot: true
+
+# Container resources, for example:
+# resources:
+#   requests:
+#     cpu: 100m
+#     memory: 128Mi
+#   limits:
+#     cpu: 500m
+#     memory: 256Mi
+resources: {}
+
+standalone:
+  # Name of the existing PersistentVolumeClaim that contains the cache.
+  existingClaim: kv-cache-pvc
+
+  # Must remain 1 for each cache: the evictor has no leader election.
+  replicaCount: 1
+
+  # Names of existing image pull Secrets, for example:
+  # imagePullSecrets:
+  #   - name: my-registry-secret
+  imagePullSecrets: []
+
+  # Annotations added to the evictor Pod. The chart also adds a settings
+  # checksum annotation so Pods restart when the ConfigMap values change.
+  podAnnotations: {}
+
+  # securityContext for the Pod.
+  podSecurityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Restrict the evictor to specific nodes.
+  nodeSelector: {}
+
+  # Allow scheduling on tainted nodes.
+  tolerations: []
+
+  # Control Pod placement relative to other workloads.
+  affinity: {}
+
+sidecar:
+  # Name of the volume in the vLLM Pod that mounts the cache PVC.
+  volumeName: cache-storage

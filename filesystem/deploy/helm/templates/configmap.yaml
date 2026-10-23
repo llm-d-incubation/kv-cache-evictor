@@ -1,0 +1,34 @@
+{{- if not (or (eq .Values.mode "standalone") (eq .Values.mode "sidecar")) }}
+{{- fail "mode must be standalone or sidecar" }}
+{{- end }}
+{{- if and (eq .Values.mode "standalone") (not .Values.standalone.existingClaim) }}
+{{- fail "standalone.existingClaim is required in standalone mode" }}
+{{- end }}
+{{- if and (eq .Values.mode "standalone") (ne (int .Values.standalone.replicaCount) 1) }}
+{{- fail "standalone.replicaCount must be 1 because the evictor has no leader election" }}
+{{- end }}
+{{- if and (eq .Values.mode "sidecar") (not .Values.sidecar.volumeName) }}
+{{- fail "sidecar.volumeName is required in sidecar mode" }}
+{{- end }}
+{{- if and (eq .Values.mode "sidecar") .Values.events.service.enabled }}
+{{- fail "events.service.enabled is only supported in standalone mode" }}
+{{- end }}
+{{- if and (eq .Values.mode "standalone") .Values.events.service.enabled }}
+{{- if not .Values.events.endpoint }}
+{{- fail "events.endpoint is required when events.service.enabled is true" }}
+{{- end }}
+{{- if not (regexMatch "^tcp://[^:]+:[0-9]+$" .Values.events.endpoint) }}
+{{- fail "events.endpoint must be a TCP endpoint such as tcp://*:5570 when events.service.enabled is true" }}
+{{- end }}
+{{- if ne (int .Values.events.service.port) (int (regexFind "[0-9]+$" .Values.events.endpoint)) }}
+{{- fail "events.service.port must match the port in events.endpoint" }}
+{{- end }}
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kv-cache-evictor.fullname" . }}-settings
+  labels:
+    {{- include "kv-cache-evictor.labels" . | nindent 4 }}
+data:
+{{- include "kv-cache-evictor.configData" . | nindent 2 }}

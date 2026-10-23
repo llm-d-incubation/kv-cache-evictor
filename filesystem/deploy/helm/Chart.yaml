@@ -1,0 +1,6 @@
+apiVersion: v2
+name: kv-cache-evictor
+description: Filesystem KV-cache evictor as a standalone Deployment or vLLM sidecar
+type: application
+version: 0.2.0
+appVersion: main
