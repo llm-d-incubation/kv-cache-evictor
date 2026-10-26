@@ -98,7 +98,7 @@ func FromEnvAndFlags(args []string) (Config, error) {
 	)
 	logFilePath := flags.String("log-file-path", "", "additional log file path")
 	storageEventsEndpoint := flags.String(
-		"storage-events-endpoint", DefaultStorageEventsEndpoint, "ZeroMQ endpoint for BlockRemoved events",
+		"storage-events-endpoint", DefaultStorageEventsEndpoint, "ZMQ endpoint for BlockRemoved events",
 	)
 
 	if err := flags.Parse(args); err != nil {
