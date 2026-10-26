@@ -92,6 +92,7 @@ It exits if either path does not appear.
 | `STORAGE_EVENTS_ENDPOINT` | `--storage-events-endpoint` | empty | ZMQ endpoint for `BlockRemoved` events |
 
 `TARGET_THRESHOLD` must be lower than `CLEANUP_THRESHOLD`. The cache directory must be a relative path below `PVC_MOUNT_PATH`.
+`CLEANUP_THRESHOLD` and `TARGET_THRESHOLD` are percentages of the mounted filesystem’s usable capacity, not of `PVC.spec.resources.requests.storage`.
 
 ## Storage events
 

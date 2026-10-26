@@ -12,6 +12,19 @@ Neither method creates the PVC. You must provide the PVC and the cache
 volume. Run one evictor for each shared cache because the evictor has no
 leader election.
 
+The evictor and vLLM must resolve to the same cache directory.
+
+For example, if vLLM mounts the PVC at `/mnt/files-storage` and the evictor mounts the same PVC at `/kv-cache`, use:
+
+- vLLM `root_dir`: `/mnt/files-storage/kv/model-cache/models`
+- evictor `PVC_MOUNT_PATH`: `/kv-cache`
+- evictor `CACHE_DIRECTORY`: `kv/model-cache/models`
+
+`root_dir` is a field in vLLM’s `kv-transfer-config`. `PVC_MOUNT_PATH` and
+`CACHE_DIRECTORY` are environment variables read by the evictor.
+
+`CLEANUP_THRESHOLD` and `TARGET_THRESHOLD` are percentages of the mounted filesystem’s usable capacity, not of `PVC.spec.resources.requests.storage`.
+
 ## Kustomize
 
 ### Standalone
@@ -217,6 +230,9 @@ Use the dependency alias instead of `kv-cache-evictor` if you set an alias.
 
 Add the checksum to the vLLM Pod template so a Helm upgrade restarts the
 sidecar when its settings change:
+
+Helm updates the ConfigMap, but it does not restart or reconcile a vLLM Deployment owned by another chart.
+Add the checksum annotation to the parent Pod template so a Helm upgrade restarts the Pod when the ConfigMap changes.
 
 ```gotemplate
 {{- $evictor := index .Subcharts "kv-cache-evictor" -}}

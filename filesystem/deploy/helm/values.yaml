@@ -31,6 +31,7 @@ storage:
 # variables used by the binary.
 settings:
   # Filesystem usage percentage that starts deletion. CLEANUP_THRESHOLD.
+  # This is the mounted filesystem's usable capacity, not the PVC request.
   cleanupThreshold: 85.0
 
   # Filesystem usage percentage that stops deletion. TARGET_THRESHOLD.
