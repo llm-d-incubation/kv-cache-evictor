@@ -38,7 +38,7 @@ settings:
   # This must be lower than cleanupThreshold.
   targetThreshold: 70.0
 
-  # Log deletion decisions without deleting files. DRY_RUN.
+  # Log file deletion decisions and retain cache files and directories. DRY_RUN.
   dryRun: false
 
   # DEBUG, INFO, WARNING, or ERROR. LOG_LEVEL.

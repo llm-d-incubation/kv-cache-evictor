@@ -74,7 +74,7 @@ func FromEnvAndFlags(args []string) (Config, error) {
 	targetThreshold := flags.Float64(
 		"target-threshold", DefaultTargetThreshold, "disk usage percentage that stops deletion",
 	)
-	dryRun := flags.Bool("dry-run", DefaultDryRun, "log deletion decisions without deleting files")
+	dryRun := flags.Bool("dry-run", DefaultDryRun, "log file deletion decisions and retain cache files and directories")
 	logLevel := flags.String("log-level", DefaultLogLevel, "log level: DEBUG, INFO, WARNING, or ERROR")
 	numCrawlerProcesses := flags.Int("num-crawler-processes", DefaultNumCrawlerProcesses, "number of crawler workers")
 	loggerIntervalSeconds := flags.Float64(

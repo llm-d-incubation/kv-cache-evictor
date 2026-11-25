@@ -11,11 +11,69 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/llm-d-incubation/kv-cache-evictor/filesystem/internal/config"
 	"github.com/llm-d-incubation/kv-cache-evictor/filesystem/internal/disk"
 )
+
+func TestRunDirectoryCleanupRespectsDryRun(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		dryRun bool
+	}{
+		{name: "dry run", dryRun: true},
+		{name: "normal run", dryRun: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				cfg := config.Config{
+					PVCMountPath:        t.TempDir(),
+					CacheDirectory:      config.DefaultCacheDirectory,
+					CleanupThreshold:    config.DefaultCleanupThreshold,
+					TargetThreshold:     config.DefaultTargetThreshold,
+					DryRun:              tc.dryRun,
+					NumCrawlerProcesses: 1,
+					LoggerInterval:      config.DefaultLoggerInterval,
+					FileQueueMaxSize:    config.DefaultFileQueueMaxSize,
+					FileQueueMinSize:    config.DefaultFileQueueMinSize,
+					DeletionBatchSize:   config.DefaultDeletionBatchSize,
+					HexBucketLen:        config.DefaultHexBucketLen,
+					EnableDirCleanup:    config.DefaultEnableDirCleanup,
+					DirCleanupTTL:       config.DefaultDirCleanupTTL,
+				}
+				bucket := filepath.Join(cfg.PVCMountPath, cfg.CacheDirectory, "model_r0", "abc")
+				if err := os.MkdirAll(bucket, 0o750); err != nil {
+					t.Fatal(err)
+				}
+				old := time.Now().Add(-cfg.DirCleanupTTL - time.Second)
+				if err := os.Chtimes(bucket, old, old); err != nil {
+					t.Fatal(err)
+				}
+
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				done := make(chan error, 1)
+				go func() { done <- Run(ctx, &cfg, testLogger()) }()
+				// Wait for the initial scan and any queued cleanup to finish.
+				synctest.Wait()
+				cancel()
+				if err := <-done; err != nil {
+					t.Fatalf("Run() = %v, want nil", err)
+				}
+
+				_, err := os.Stat(bucket)
+				if tc.dryRun && err != nil {
+					t.Errorf("dry run must retain the empty cache directory: %v", err)
+				}
+				if !tc.dryRun && !errors.Is(err, os.ErrNotExist) {
+					t.Errorf("normal run must clean the empty cache directory, stat returned %v", err)
+				}
+			})
+		})
+	}
+}
 
 func TestWaitForMountReady(t *testing.T) {
 	path := t.TempDir()
