@@ -1,0 +1,11 @@
+# See https://go.k8s.io/owners for format documentation
+
+reviewers:
+  - zdtsw
+  - wseaton
+  - anishasthana
+  - dagrayvid
+
+approvers:
+  - zdtsw
+  - wseaton

@@ -1,0 +1,13 @@
+# Normalize text files and keep Unix line endings.
+* text=auto
+
+*.go text diff=go eol=lf
+*.mod text eol=lf
+*.sum text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+Makefile text eol=lf
+Dockerfile text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
