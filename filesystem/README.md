@@ -76,7 +76,7 @@ It exits if either path does not appear.
 | `CACHE_DIRECTORY` | `--cache-directory` | `kv/model-cache/models` | Relative cache path below the mount |
 | `CLEANUP_THRESHOLD` | `--cleanup-threshold` | `85` | Usage percentage that starts deletion |
 | `TARGET_THRESHOLD` | `--target-threshold` | `70` | Usage percentage that stops deletion |
-| `DRY_RUN` | `--dry-run` | `false` | Keep files and log deletion batches |
+| `DRY_RUN` | `--dry-run` | `false` | Log file deletion batches and retain cache files and directories |
 | `LOG_LEVEL` | `--log-level` | `INFO` | `DEBUG`, `INFO`, `WARNING`, or `ERROR` |
 | `NUM_CRAWLER_PROCESSES` | `--num-crawler-processes` | `8` | Crawler workers; must be a power of two from 1 to 16 |
 | `LOGGER_INTERVAL_SECONDS` | `--logger-interval-seconds` | `0.5` | Filesystem usage check interval |

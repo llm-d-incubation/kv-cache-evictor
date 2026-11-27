@@ -63,11 +63,9 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 	defer cancel()
 
 	fileQueue := make(chan string, cfg.FileQueueMaxSize)
-	// folderQueue stays nil when directory cleanup is disabled. Crawlers and
-	// the deleter then skip empty directories instead of filling a queue
-	// that nobody reads.
+	// A nil folder queue skips directory cleanup, including during dry runs.
 	var folderQueue chan string
-	if cfg.EnableDirCleanup {
+	if cfg.EnableDirCleanup && !cfg.DryRun {
 		folderQueue = make(chan string, cfg.FileQueueMaxSize)
 	}
 	deletionActive := &atomic.Bool{}
@@ -100,7 +98,7 @@ func Run(ctx context.Context, cfg *config.Config, logger *slog.Logger) error {
 		return deleter.New(cfg, publisher, pendingFilePaths).Run(ctx, deletionActive, fileQueue, folderQueue, logger)
 	})
 
-	if cfg.EnableDirCleanup {
+	if folderQueue != nil {
 		startSupervisedWorker(runCtx, &workers, logger, "folder cleaner", func(ctx context.Context) error {
 			return cleaner.Run(ctx, cachePath, folderQueue, logger)
 		})
